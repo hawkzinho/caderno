@@ -1,0 +1,69 @@
+/* ======================== */
+/* NOTEBOOK PAGE THEMES */
+/* ======================== */
+
+.theme-blank {
+  /* Default clean white/off-white page without lines */
+  background-image: none;
+}
+
+.theme-lined {
+  /* Lined paper simulation */
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent,
+    transparent 31px,
+    var(--border-secondary) 31px,
+    var(--border-secondary) 32px
+  );
+  background-position: 0 45px;
+}
+
+.theme-squared {
+  /* Math/Squared paper simulation */
+  background-image: 
+    repeating-linear-gradient(to right, transparent, transparent 23px, var(--border-secondary) 23px, var(--border-secondary) 24px),
+    repeating-linear-gradient(to bottom, transparent, transparent 23px, var(--border-secondary) 23px, var(--border-secondary) 24px);
+  background-position: 0 45px;
+}
+
+.theme-yellowed {
+  /* Vintage/Yellowed paper */
+  background-color: #FDF9E3 !important;
+  color: #3D3B33;
+}
+.theme-yellowed .page-meta {
+  border-bottom-color: #E6DFB8;
+}
+
+.theme-binder {
+  /* Binder with holes on the left */
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent,
+    transparent 31px,
+    var(--border-secondary) 31px,
+    var(--border-secondary) 32px
+  );
+  background-position: 0 45px;
+  border-left: 2px solid #E17055;
+}
+
+.theme-binder::before {
+  content: '';
+  position: absolute;
+  top: 60px;
+  bottom: 60px;
+  left: 12px;
+  width: 14px;
+  background-image: radial-gradient(circle at center, var(--bg-tertiary) 6px, transparent 7px);
+  background-size: 14px 60px;
+  background-repeat: repeat-y;
+}
+
+.theme-recycled {
+  /* Recycled paper look with faint texture */
+  background-color: #F1F0EA !important;
+  background-image: radial-gradient(#D4D3CB 1px, transparent 1px);
+  background-size: 12px 12px;
+}
