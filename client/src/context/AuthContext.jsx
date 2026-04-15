@@ -1,12 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { api, getToken, removeToken, setToken } from '../api/client';
+import { api, clearLegacyToken } from '../api/client';
+import { supabase } from '../lib/supabase';
 import { normalizePreferences } from '../utils/preferences';
 
 const AuthContext = createContext(null);
-
-function normalizeTheme(theme) {
-  return 'light';
-}
 
 function normalizeUser(user) {
   if (!user) {
@@ -29,7 +26,7 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [theme, setTheme] = useState(getInitialTheme);
 
-  const applyTheme = useCallback((nextTheme) => {
+  const applyTheme = useCallback(() => {
     setTheme('light');
 
     if (typeof window !== 'undefined') {
@@ -44,15 +41,20 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     let cancelled = false;
-    const token = getToken();
+    clearLegacyToken();
 
-    if (!token) {
-      setLoading(false);
-      return undefined;
-    }
+    const syncUser = async (session) => {
+      if (!session?.user) {
+        if (!cancelled) {
+          setUser(null);
+          setLoading(false);
+        }
+        return;
+      }
 
-    api.getMe()
-      .then((currentUser) => {
+      try {
+        const currentUser = await api.getMe();
+
         if (cancelled) {
           return;
         }
@@ -60,21 +62,33 @@ export function AuthProvider({ children }) {
         const normalizedUser = normalizeUser(currentUser);
         setUser(normalizedUser);
         applyTheme(normalizedUser.theme);
-      })
-      .catch(() => {
-        removeToken();
+      } catch {
         if (!cancelled) {
           setUser(null);
         }
-      })
-      .finally(() => {
+      } finally {
         if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    supabase.auth.getSession()
+      .then(({ data }) => syncUser(data.session))
+      .catch(() => {
+        if (!cancelled) {
+          setUser(null);
           setLoading(false);
         }
       });
 
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      void syncUser(session);
+    });
+
     return () => {
       cancelled = true;
+      authListener.subscription.unsubscribe();
     };
   }, [applyTheme]);
 
@@ -82,7 +96,6 @@ export function AuthProvider({ children }) {
     const data = await api.login({ email, password });
     const normalizedUser = normalizeUser(data.user);
 
-    setToken(data.token);
     setUser(normalizedUser);
     applyTheme(normalizedUser.theme);
 
@@ -93,21 +106,20 @@ export function AuthProvider({ children }) {
     const data = await api.register({ name, email, password });
     const normalizedUser = normalizeUser(data.user);
 
-    setToken(data.token);
     setUser(normalizedUser);
     applyTheme(normalizedUser.theme);
 
     return normalizedUser;
   }, [applyTheme]);
 
-  const logout = useCallback(() => {
-    api.endSession().catch(() => {});
-    removeToken();
+  const logout = useCallback(async () => {
+    await api.endSession().catch(() => {});
+    await api.logout().catch(() => {});
     setUser(null);
     applyTheme(getInitialTheme());
   }, [applyTheme]);
 
-  const updateTheme = useCallback(async (nextTheme) => {
+  const updateTheme = useCallback(async () => {
     applyTheme('light');
     setUser((currentUser) => (currentUser ? { ...currentUser, theme: 'light' } : currentUser));
 
@@ -118,7 +130,7 @@ export function AuthProvider({ children }) {
     const updatedUser = normalizeUser(await api.updateMe({ theme: 'light' }));
     setUser(updatedUser);
     return updatedUser;
-  }, [applyTheme, theme, user]);
+  }, [applyTheme, user]);
 
   const updatePreferences = useCallback(async (preferences) => {
     const normalizedPreferences = normalizePreferences(preferences);
